@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Auth from "./Authv2.tsx";
 import { supabase } from "./supabaseClient";
-import Dashboard from "./components/Dashboard";
-import logo from "./assets/nexus-logo.png";
+
 
 interface LedgerEntry {
   id: string;
