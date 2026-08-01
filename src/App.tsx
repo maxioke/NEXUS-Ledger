@@ -1,4 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import Auth from "./Authv2.tsx";
+import { supabase } from "./supabaseClient";
+import Dashboard from "./components/Dashboard";
+import logo from "./assets/nexus-logo.png";
 
 interface LedgerEntry {
   id: string;
@@ -178,8 +182,22 @@ const getLocalDateString = (d = new Date()) => {
 };
 
 export default function App() {
+  const [session, setSession] = useState<any>(null);
   const [currentView, setCurrentView] = useState<'dashboard' | 'analytics' | 'calendar' | 'settings'>('dashboard');
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
   
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+  
+    return () => subscription.unsubscribe();
+  }, []);
+
   const [theme, setTheme] = useState<Theme>(() => {
     try {
       const savedTheme = localStorage.getItem('pnl-theme');
@@ -232,6 +250,7 @@ export default function App() {
   const [activeImageModal, setActiveImageModal] = useState<string | null>(null);
 
   const [currentMonthDate, setCurrentMonthDate] = useState(new Date());
+  
 
   useEffect(() => {
     localStorage.setItem('pnl-entries', JSON.stringify(entries));
@@ -423,6 +442,9 @@ export default function App() {
     : isSpiderman
     ? 'bg-[#120718]/95 border-[#e11d48]/40 rounded-2xl shadow-[0_10px_35px_rgba(225,29,72,0.15)] backdrop-blur-xl'
     : 'bg-white/80 border-slate-200/80 rounded-3xl shadow-slate-200/50 shadow-xl backdrop-blur-xl';
+    if (!session) {
+      return <Auth />;
+    }
 
   return (
     <div className={`min-h-screen flex flex-col md:flex-row p-4 md:p-6 gap-6 font-sans transition-colors duration-300 selection:bg-rose-500 selection:text-white ${containerBg}`}>
@@ -503,6 +525,7 @@ export default function App() {
               { id: 'calendar', label: t.calendar, icon: '📅' }
             ].map((nav) => {
               const isActive = currentView === nav.id;
+              
               return (
                 <button
                   key={nav.id}
@@ -544,9 +567,12 @@ export default function App() {
         <div className="space-y-4 pt-6">
           <button
             onClick={() => setCurrentView('settings')}
+            
+            
             className={`w-full text-left px-5 py-3.5 font-mono text-xs font-bold transition-all flex items-center gap-3 ${
               isMinimal ? 'rounded-full' : isLuxury || isSpiderman ? 'rounded-xl' : 'rounded-2xl'
             } ${
+              
               currentView === 'settings'
                 ? isDark 
                   ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-[0_0_20px_rgba(6,182,212,0.4)] scale-[1.02]' 
@@ -571,6 +597,14 @@ export default function App() {
             <span className="text-base">⚙️</span>
             <span>{t.settings}</span>
           </button>
+          <button
+  onClick={async () => {
+    await supabase.auth.signOut();
+  }}
+  className="w-full mt-3 px-5 py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold transition-all"
+>
+  🚪 Cerrar sesión
+</button>
 
           <div className={`pt-4 border-t px-2 space-y-1 ${
             isDark ? 'border-slate-800/60' : isMinimal ? 'border-[#e5e2da]' : isLuxury ? 'border-[#d4af37]/20' : isSpiderman ? 'border-rose-900/40' : 'border-slate-200'
