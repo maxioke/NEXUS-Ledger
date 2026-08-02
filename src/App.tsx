@@ -5,6 +5,7 @@ import { supabase } from "./supabaseClient";
 
 interface LedgerEntry {
   id: string;
+  user_id: string;
   date: string;
   amount: number;
   status: 'WIN' | 'LOSS' | 'BREAKEVEN';
@@ -196,6 +197,26 @@ export default function App() {
   
     return () => subscription.unsubscribe();
   }, []);
+  useEffect(() => {
+    if (!session) return;
+  
+    const loadTrades = async () => {
+      const { data, error } = await supabase
+        .from("trades")
+        .select("*")
+        .eq("user_id", session.user.id)
+        .order("timestamp", { ascending: false });
+  
+      if (error) {
+        console.error(error);
+        return;
+      }
+  
+      setEntries(data || []);
+    };
+  
+    loadTrades();
+  }, [session]);
 
   const [theme, setTheme] = useState<Theme>(() => {
     try {
@@ -217,14 +238,7 @@ export default function App() {
 
   const t = translations[lang];
 
-  const [entries, setEntries] = useState<LedgerEntry[]>(() => {
-    try {
-      const saved = localStorage.getItem('pnl-entries');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [entries, setEntries] = useState<LedgerEntry[]>([]);
 
   const [targetGoal, setTargetGoal] = useState<number>(() => {
     try {
@@ -251,9 +265,7 @@ export default function App() {
   const [currentMonthDate, setCurrentMonthDate] = useState(new Date());
   
 
-  useEffect(() => {
-    localStorage.setItem('pnl-entries', JSON.stringify(entries));
-  }, [entries]);
+  
 
   useEffect(() => {
     localStorage.setItem('pnl-target-goal', targetGoal.toString());
@@ -278,7 +290,7 @@ export default function App() {
     }
   };
 
-  const handleAdd = (e: React.FormEvent) => {
+  const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!amount) return;
 
@@ -288,6 +300,7 @@ export default function App() {
 
     const newEntry: LedgerEntry = {
       id: safeId,
+      user_id: session.user.id,
       date,
       amount: status === 'BREAKEVEN' ? 0 : finalAmount,
       status,
@@ -295,14 +308,33 @@ export default function App() {
       screenshot,
       timestamp: Date.now()
     };
-
+    
+    const { error } = await supabase
+      .from("trades")
+      .insert([newEntry]);
+    
+    if (error) {
+      console.error(error);
+      return;
+    }
+    
     setEntries([newEntry, ...entries]);
     setAmount('');
     setNotes('');
     setScreenshot(undefined);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase
+      .from("trades")
+      .delete()
+      .eq("id", id);
+  
+    if (error) {
+      console.error(error);
+      return;
+    }
+  
     setEntries(entries.filter(e => e.id !== id));
   };
 
